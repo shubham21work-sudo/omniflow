@@ -1,0 +1,1 @@
+﻿export default function AccountPage() { return <div style={{padding:'8px'}}><h2 style={{fontSize:'22px',fontWeight:'700',color:'#0f172a'}}>My Account</h2><p style={{color:'#64748b',marginTop:'8px'}}>Manage your profile and settings.</p></div> }

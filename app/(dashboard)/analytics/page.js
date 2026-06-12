@@ -1,0 +1,1 @@
+﻿export default function AnalyticsPage() { return <div style={{padding:'8px'}}><h2 style={{fontSize:'22px',fontWeight:'700',color:'#0f172a'}}>Analytics</h2><p style={{color:'#64748b',marginTop:'8px'}}>Monthly consumption and AI insights.</p></div> }

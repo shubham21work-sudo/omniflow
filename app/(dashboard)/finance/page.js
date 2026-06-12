@@ -1,0 +1,1 @@
+﻿export default function FinancePage() { return <div style={{padding:'8px'}}><h2 style={{fontSize:'22px',fontWeight:'700',color:'#0f172a'}}>Finance Queue</h2><p style={{color:'#64748b',marginTop:'8px'}}>Process approved invoices for payment.</p></div> }
