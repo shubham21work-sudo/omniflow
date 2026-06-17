@@ -1,8 +1,11 @@
 ﻿'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { ADMIN_EMAIL } from '../../lib/config';
 
-const nav = [
+const baseNav = [
   {label:'Dashboard', href:'/dashboard'},
   {label:'Agreements', href:'/agreements'},
   {label:'Vendors', href:'/vendors'},
@@ -11,15 +14,25 @@ const nav = [
   {label:'Finance Queue', href:'/finance'},
   {label:'Analytics', href:'/analytics'},
   {label:'My Account', href:'/account'},
-  {label:'Settings', href:'/settings'},
 ];
 
 export default function Sidebar({ open = false, onClose = () => {} }) {
   const path = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const email = data?.session?.user?.email || '';
+      setIsAdmin(email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+    });
+  }, []);
+
+  const nav = isAdmin ? [...baseNav, {label:'Settings', href:'/settings'}] : baseNav;
+
   return (
     <>
       {open && (
-        <div className="app-sidebar-overlay" onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:49}}></div>
+        <div className='app-sidebar-overlay' onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:49}}></div>
       )}
       <aside className={'app-sidebar' + (open ? ' open' : '')} style={{width:'260px',position:'fixed',top:0,left:0,height:'100vh',background:'#0f172a',display:'flex',flexDirection:'column',zIndex:50}}>
         <div style={{padding:'20px 24px',borderBottom:'1px solid #1e293b',display:'flex',alignItems:'center',gap:'12px'}}>

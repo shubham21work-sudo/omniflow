@@ -1,8 +1,13 @@
 ﻿'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
+import { ADMIN_EMAIL } from '../../../lib/config';
 
 export default function SettingsPage() {
+  const router = useRouter();
+  const [authorized, setAuthorized] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [approvers, setApprovers] = useState([{stage:1,name:'',email:''},{stage:2,name:'',email:''},{stage:3,name:'',email:''}]);
   const [finance, setFinance] = useState({name:'',email:''});
   const [saving, setSaving] = useState(false);
@@ -12,12 +17,20 @@ export default function SettingsPage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('approver_settings').select('*').order('stage');
-      if (data && data.length>0) setApprovers([data.find(a=>a.stage===1)||{stage:1,name:'',email:''},data.find(a=>a.stage===2)||{stage:2,name:'',email:''},data.find(a=>a.stage===3)||{stage:3,name:'',email:''}]);
+      const { data } = await supabase.auth.getSession();
+      const email = data?.session?.user?.email || '';
+      if (email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        router.replace('/dashboard');
+        return;
+      }
+      setAuthorized(true);
+      setCheckingAuth(false);
+      const { data: ap } = await supabase.from('approver_settings').select('*').order('stage');
+      if (ap && ap.length>0) setApprovers([ap.find(a=>a.stage===1)||{stage:1,name:'',email:''},ap.find(a=>a.stage===2)||{stage:2,name:'',email:''},ap.find(a=>a.stage===3)||{stage:3,name:'',email:''}]);
       const { data: fd } = await supabase.from('finance_settings').select('*').limit(1);
       if (fd && fd[0]) setFinance({name:fd[0].name,email:fd[0].email});
     })();
-  }, []);
+  }, [router]);
 
   const updateApprover = (stage,key,val) => setApprovers(p=>p.map(a=>a.stage===stage?{...a,[key]:val}:a));
 
@@ -41,6 +54,11 @@ export default function SettingsPage() {
   const inp = {width:'100%',padding:'11px 14px',borderRadius:'10px',border:'1.5px solid #e5e7eb',fontSize:'14px',outline:'none',boxSizing:'border-box',color:'#111827'};
   const stageColor = ['','linear-gradient(135deg,#7c3aed,#4f46e5)','linear-gradient(135deg,#10b981,#059669)','linear-gradient(135deg,#f59e0b,#d97706)'];
 
+  if (checkingAuth) {
+    return <div style={{textAlign:'center',padding:'80px',color:'#94a3b8',fontSize:'14px'}}>Checking access...</div>;
+  }
+  if (!authorized) { return null; }
+
   return (
     <div style={{maxWidth:'680px'}}>
       <div style={{marginBottom:'28px'}}>
@@ -59,7 +77,7 @@ export default function SettingsPage() {
             <div style={{width:'32px',height:'32px',borderRadius:'8px',background:stageColor[a.stage],display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:'800',fontSize:'14px'}}>{a.stage}</div>
             <div>
               <p style={{fontSize:'13px',fontWeight:'700',color:'#0f172a',margin:0}}>Stage {a.stage} Approver</p>
-              <p style={{fontSize:'11px',color:'#64748b',margin:0}}>{i===0?'First reviewer':i===1?'Second reviewer':'Final approver → Finance Queue'}</p>
+              <p style={{fontSize:'11px',color:'#64748b',margin:0}}>{i===0?'First reviewer':i===1?'Second reviewer':'Final approver - Finance Queue'}</p>
             </div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
@@ -80,10 +98,10 @@ export default function SettingsPage() {
       <h3 style={{fontSize:'15px',fontWeight:'700',color:'#0f172a',marginBottom:'16px'}}>Finance Member</h3>
       <div style={{background:'white',borderRadius:'16px',padding:'24px',boxShadow:'0 1px 3px rgba(0,0,0,0.06)',border:'1px solid #f1f5f9',marginBottom:'16px'}}>
         <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'16px'}}>
-          <div style={{width:'32px',height:'32px',borderRadius:'8px',background:'linear-gradient(135deg,#0ea5e9,#0284c7)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:'800',fontSize:'14px'}}>₹</div>
+          <div style={{width:'32px',height:'32px',borderRadius:'8px',background:'linear-gradient(135deg,#0ea5e9,#0284c7)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:'800',fontSize:'14px'}}>F</div>
           <div>
             <p style={{fontSize:'13px',fontWeight:'700',color:'#0f172a',margin:0}}>Finance Verifier</p>
-            <p style={{fontSize:'11px',color:'#64748b',margin:0}}>Verifies invoices after 3-stage approval → marks paid with UTR</p>
+            <p style={{fontSize:'11px',color:'#64748b',margin:0}}>Verifies invoices after 3-stage approval - marks paid with UTR</p>
           </div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
