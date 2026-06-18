@@ -20,6 +20,10 @@ export default function AnalyticsPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [ai, setAi] = useState(null);
   const [aiError, setAiError] = useState('');
+  const [merging, setMerging] = useState(false);
+  const [mergeMode, setMergeMode] = useState(false);
+  const [vendorMapMerge, setVendorMapMerge] = useState(null);
+  const [locMapMerge, setLocMapMerge] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -52,6 +56,28 @@ export default function AnalyticsPage() {
   const locMap = {};
   invoices.forEach(inv => { const l=inv.location||'Unknown'; locMap[l]=(locMap[l]||0)+(parseFloat(inv.total_amount)||0); });
   const locationData = Object.entries(locMap).map(([name,value])=>({name,value}));
+
+  const applyMerge = (dataArr, mapping) => {
+    const merged = {};
+    dataArr.forEach(d => { const canon = (mapping && mapping[d.name]) ? mapping[d.name] : d.name; merged[canon] = (merged[canon]||0) + d.value; });
+    return Object.entries(merged).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
+  };
+  const vendorChartData = (mergeMode && vendorMapMerge) ? applyMerge(vendorData, vendorMapMerge).slice(0,8) : vendorData;
+  const locationChartData = (mergeMode && locMapMerge) ? applyMerge(locationData, locMapMerge) : locationData;
+
+  const runSmartMerge = async () => {
+    setMerging(true);
+    try {
+      const vRes = await fetch('/api/merge-names', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ names: vendorData.map(v=>v.name), kind: 'vendor' }) });
+      const vData = await vRes.json();
+      setVendorMapMerge(vData.mapping || {});
+      const lRes = await fetch('/api/merge-names', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ names: locationData.map(l=>l.name), kind: 'city location' }) });
+      const lData = await lRes.json();
+      setLocMapMerge(lData.mapping || {});
+      setMergeMode(true);
+    } catch (e) {}
+    setMerging(false);
+  };
 
   const gstMonthMap = {};
   invoices.forEach(inv => { if (inv.invoice_date) { const d=new Date(inv.invoice_date); const k=d.toLocaleString('en-US',{month:'short',year:'numeric'}); gstMonthMap[k]=(gstMonthMap[k]||0)+(parseFloat(inv.gst_amount)||0); } });
@@ -93,6 +119,11 @@ export default function AnalyticsPage() {
       <div style={{marginBottom:'24px'}}>
         <h2 style={{fontSize:'22px',fontWeight:'700',color:'#0f172a',margin:0}}>Analytics</h2>
         <p style={{color:'#64748b',fontSize:'14px',margin:'4px 0 0'}}>Insights generated from your invoice data</p>
+        <div style={{marginTop:'12px',display:'flex',gap:'10px',alignItems:'center'}}>
+          <button onClick={runSmartMerge} disabled={merging} style={{padding:'9px 18px',borderRadius:'10px',background: merging ? '#c4b5fd' : 'linear-gradient(135deg,#0ea5e9,#6366f1)',color:'white',fontSize:'13px',fontWeight:'600',border:'none',cursor: merging ? 'wait':'pointer'}}>{merging ? 'AI is merging duplicates...' : 'Smart Merge (AI)'}</button>
+          {mergeMode && <button onClick={()=>setMergeMode(false)} style={{padding:'9px 18px',borderRadius:'10px',background:'#f1f5f9',color:'#475569',fontSize:'13px',fontWeight:'600',border:'1px solid #e2e8f0',cursor:'pointer'}}>Show Raw</button>}
+          {mergeMode && <span style={{fontSize:'12px',color:'#0ea5e9',fontWeight:'600'}}>AI merged duplicate names</span>}
+        </div>
       </div>
 
       <div style={{background:'linear-gradient(135deg,#faf5ff,#f5f3ff)',border:'1px solid #e9d5ff',borderRadius:'16px',padding:'24px',marginBottom:'24px'}}>
@@ -169,8 +200,8 @@ export default function AnalyticsPage() {
             <h3 style={{fontSize:'15px',fontWeight:'600',color:'#0f172a',marginBottom:'16px'}}>Vendor Wise Spend</h3>
             <ResponsiveContainer width='100%' height={280}>
               <PieChart>
-                <Pie data={vendorData} dataKey='value' nameKey='name' cx='50%' cy='50%' innerRadius={55} outerRadius={95} paddingAngle={2} label={pieLabel}>
-                  {vendorData.map((e,i)=>(<Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />))}
+                <Pie data={vendorChartData} dataKey='value' nameKey='name' cx='50%' cy='50%' innerRadius={55} outerRadius={95} paddingAngle={2} label={pieLabel}>
+                  {vendorChartData.map((e,i)=>(<Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />))}
                 </Pie>
                 <Tooltip content={<MoneyTooltip />} />
                 <Legend wrapperStyle={{fontSize:'11px'}} />
@@ -182,8 +213,8 @@ export default function AnalyticsPage() {
             <h3 style={{fontSize:'15px',fontWeight:'600',color:'#0f172a',marginBottom:'16px'}}>Location Wise Spend</h3>
             <ResponsiveContainer width='100%' height={280}>
               <PieChart>
-                <Pie data={locationData} dataKey='value' nameKey='name' cx='50%' cy='50%' innerRadius={55} outerRadius={95} paddingAngle={2} label={pieLabel}>
-                  {locationData.map((e,i)=>(<Cell key={i} fill={DONUT_COLORS[(i+2) % DONUT_COLORS.length]} />))}
+                <Pie data={locationChartData} dataKey='value' nameKey='name' cx='50%' cy='50%' innerRadius={55} outerRadius={95} paddingAngle={2} label={pieLabel}>
+                  {locationChartData.map((e,i)=>(<Cell key={i} fill={DONUT_COLORS[(i+2) % DONUT_COLORS.length]} />))}
                 </Pie>
                 <Tooltip content={<MoneyTooltip />} />
                 <Legend wrapperStyle={{fontSize:'11px'}} />
