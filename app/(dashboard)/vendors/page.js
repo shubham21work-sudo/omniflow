@@ -4,8 +4,21 @@ import { supabase } from '../../../lib/supabase';
 
 export default function VendorsPage() {
   const [form, setForm] = useState({ name:'', gstin:'', pan:'', category:'Manpower', contact_person:'', email:'', phone:'' });
+  const [gstList, setGstList] = useState(['']);
+  const updateGst = (i, val) => setGstList(p => p.map((g, idx) => idx === i ? val : g));
+  const addGst = () => setGstList(p => [...p, '']);
+  const removeGst = (i) => setGstList(p => p.length > 1 ? p.filter((_, idx) => idx !== i) : p);
+  const startEdit = (v) => {
+    setForm({ name: v.name||'', gstin: v.gstin||'', pan: v.pan||'', category: v.category||'Manpower', contact_person: v.contact_person||'', email: v.email||'', phone: v.phone||'' });
+    const gsts = (v.gstin||'').split(',').map(g=>g.trim()).filter(Boolean);
+    setGstList(gsts.length > 0 ? gsts : ['']);
+    setEditingId(v.id);
+    setMsg('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const [vendors, setVendors] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -20,9 +33,15 @@ export default function VendorsPage() {
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   const handleSave = async () => {
-    if (!form.name || !form.gstin) { setMsg('Vendor Name and GSTIN are required.'); return; }
+    const joinedGst = gstList.map(g=>g.trim()).filter(Boolean).join(', ');
+    if (!form.name || !joinedGst) { setMsg('Vendor Name and at least one GSTIN are required.'); return; }
+    form.gstin = joinedGst;
     setSaving(true); setMsg('');
-    const { error } = await supabase.from('vendors').insert([{
+    const payload = { name: form.name, gstin: form.gstin, pan: form.pan, category: form.category, contact_person: form.contact_person, email: form.email, phone: form.phone };
+      let error;
+      if (editingId) { const r = await supabase.from('vendors').update(payload).eq('id', editingId); error = r.error; }
+      else { payload.status = 'active'; const r = await supabase.from('vendors').insert([payload]); error = r.error; }
+      const _ignore = ({
       name: form.name,
       gstin: form.gstin,
       pan: form.pan,
@@ -31,15 +50,25 @@ export default function VendorsPage() {
       email: form.email,
       phone: form.phone,
       status: 'active'
-    }]);
+    });
     setSaving(false);
     if (error) setMsg('Error: ' + error.message);
     else { setMsg('Vendor registered!'); setForm({ name:'', gstin:'', pan:'', category:'Manpower', contact_person:'', email:'', phone:'' }); fetchVendors(); }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this vendor?')) return;
-    await supabase.from('vendors').delete().eq('id', id);
+    if (!confirm('Delete this vendor and ALL its invoices, agreements and related records? This cannot be undone.')) return;
+    const { data: invs } = await supabase.from('invoices').select('id').eq('vendor_id', id);
+    const invoiceIds = (invs || []).map(i => i.id);
+    if (invoiceIds.length > 0) {
+      await supabase.from('approvals').delete().in('invoice_id', invoiceIds);
+      await supabase.from('approval_workflow').delete().in('invoice_id', invoiceIds);
+      await supabase.from('finance_queue').delete().in('invoice_id', invoiceIds);
+      await supabase.from('invoices').delete().in('id', invoiceIds);
+    }
+    await supabase.from('agreements').delete().eq('vendor_id', id);
+    const { error } = await supabase.from('vendors').delete().eq('id', id);
+    if (error) { alert('Could not delete vendor: ' + error.message); return; }
     setVendors(p => p.filter(v => v.id !== id));
   };
 
@@ -64,7 +93,13 @@ export default function VendorsPage() {
           </div>
           <div style={{marginBottom:'14px'}}>
             <label style={labelStyle}>GSTIN *</label>
-            <input value={form.gstin} onChange={e=>f('gstin',e.target.value)} placeholder='e.g. 29AAECA3103D1ZA' style={inputStyle} />
+            {gstList.map((g, i) => (
+              <div key={i} style={{display:'flex',gap:'8px',marginBottom:'8px'}}>
+                <input value={g} onChange={e=>updateGst(i, e.target.value)} placeholder='e.g. 29AAECA3103D1ZA' style={{...inputStyle, flex:1}} />
+                {gstList.length > 1 && <button type='button' onClick={()=>removeGst(i)} style={{padding:'0 14px',borderRadius:'10px',border:'1px solid #fecaca',background:'#fee2e2',color:'#dc2626',fontWeight:'700',cursor:'pointer'}}>X</button>}
+              </div>
+            ))}
+            <button type='button' onClick={addGst} style={{padding:'8px 14px',borderRadius:'8px',border:'1px dashed #c4b5fd',background:'#f5f3ff',color:'#7c3aed',fontSize:'13px',fontWeight:'600',cursor:'pointer',marginBottom:'4px'}}>+ Add another GST</button>
           </div>
           <div style={{marginBottom:'14px'}}>
             <label style={labelStyle}>PAN Number</label>
@@ -91,7 +126,7 @@ export default function VendorsPage() {
             </div>
           </div>
           {msg && <div style={{padding:'10px 14px',borderRadius:'10px',background:msg.includes('Error')||msg.includes('required')?'#fee2e2':'#dcfce7',color:msg.includes('Error')||msg.includes('required')?'#dc2626':'#16a34a',fontSize:'13px',fontWeight:'600',marginBottom:'16px'}}>{msg}</div>}
-          <button onClick={handleSave} disabled={saving} style={{width:'100%',padding:'12px',borderRadius:'10px',background:'linear-gradient(135deg,#7c3aed,#4f46e5)',color:'white',fontSize:'14px',fontWeight:'600',border:'none',cursor:'pointer'}}>{saving?'Saving...':'Register Vendor'}</button>
+          <button onClick={handleSave} disabled={saving} style={{width:'100%',padding:'12px',borderRadius:'10px',background:'linear-gradient(135deg,#7c3aed,#4f46e5)',color:'white',fontSize:'14px',fontWeight:'600',border:'none',cursor:'pointer'}}>{saving?'Saving...':(editingId?'Update Vendor':'Register Vendor')}</button>
         </div>
 
         <div>
@@ -132,7 +167,8 @@ export default function VendorsPage() {
                       </div>
                     ))}
                   </div>
-                  <div style={{display:'flex',justifyContent:'flex-end'}}>
+                  <div style={{display:'flex',justifyContent:'flex-end',gap:'8px'}}>
+                    <button onClick={()=>startEdit(v)} style={{padding:'7px 14px',borderRadius:'8px',background:'#ede9fe',color:'#7c3aed',fontSize:'12px',fontWeight:'600',border:'none',cursor:'pointer'}}>Edit</button>
                     <button onClick={()=>handleDelete(v.id)} style={{padding:'7px 14px',borderRadius:'8px',background:'#fee2e2',color:'#dc2626',fontSize:'12px',fontWeight:'600',border:'none',cursor:'pointer'}}>Delete</button>
                   </div>
                 </div>

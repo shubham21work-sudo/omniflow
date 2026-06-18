@@ -47,6 +47,7 @@ export default function InvoicesPage() {
         if (regexFields.gst_number) fields.gst_number = regexFields.gst_number;
       }
       fields.invoice_file_url = fileUrl;
+      try { const catRes = await fetch('/api/categorize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vendorName: fields.vendor_name, rawText }) }); const catData = await catRes.json(); fields.category = catData.category || 'Other'; } catch (e) { fields.category = 'Other'; }
       const matchResult = computeConfidence({ extracted: fields, vendors, agreements });
       setExtracted(fields); setScores(matchResult); setStep('review');
     } catch (err) { setMsg('Error: ' + err.message); setStep('upload'); }
@@ -61,6 +62,7 @@ export default function InvoicesPage() {
       vendor_id: scores.matchedVendor ? scores.matchedVendor.id : null,
       agreement_id: scores.matchedAgreement ? scores.matchedAgreement.id : null,
       invoice_number: extracted.invoice_number,
+      category: extracted.category || 'Other',
       invoice_date: extracted.invoice_date || null,
       vendor_name: extracted.vendor_name,
       gst_number: extracted.gst_number,
