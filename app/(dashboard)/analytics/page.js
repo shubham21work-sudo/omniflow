@@ -24,6 +24,7 @@ export default function AnalyticsPage() {
   const [mergeMode, setMergeMode] = useState(false);
   const [vendorMapMerge, setVendorMapMerge] = useState(null);
   const [locMapMerge, setLocMapMerge] = useState(null);
+  const [selectedLoc, setSelectedLoc] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -56,6 +57,16 @@ export default function AnalyticsPage() {
   const locMap = {};
   invoices.forEach(inv => { const l=inv.location||'Unknown'; locMap[l]=(locMap[l]||0)+(parseFloat(inv.total_amount)||0); });
   const locationData = Object.entries(locMap).map(([name,value])=>({name,value}));
+
+  const locBreakdown = (() => {
+    if (!selectedLoc) return null;
+    const locInvoices = invoices.filter(inv => (inv.location||'Unknown') === selectedLoc);
+    const catMap = {};
+    locInvoices.forEach(inv => { const cat = inv.category || 'Uncategorized'; catMap[cat] = (catMap[cat]||0) + (parseFloat(inv.total_amount)||0); });
+    const categories = Object.entries(catMap).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
+    const totalLoc = locInvoices.reduce((s,inv)=>s+(parseFloat(inv.total_amount)||0),0);
+    return { invoices: locInvoices, categories, totalLoc };
+  })();
 
   const applyMerge = (dataArr, mapping) => {
     const merged = {};
@@ -211,9 +222,14 @@ export default function AnalyticsPage() {
 
           <div style={cardStyle}>
             <h3 style={{fontSize:'15px',fontWeight:'600',color:'#0f172a',marginBottom:'16px'}}>Location Wise Spend</h3>
+              <div style={{marginBottom:'12px',display:'flex',flexWrap:'wrap',gap:'6px'}}>
+                {locationData.map((l,i)=>(
+                  <button key={i} onClick={()=>setSelectedLoc(l.name)} style={{padding:'5px 12px',borderRadius:'8px',border: selectedLoc===l.name ? '1px solid #0ea5e9' : '1px solid #e2e8f0',background: selectedLoc===l.name ? '#e0f2fe' : '#f8fafc',color:'#334155',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>{l.name}</button>
+                ))}
+              </div>
             <ResponsiveContainer width='100%' height={280}>
               <PieChart>
-                <Pie data={locationChartData} dataKey='value' nameKey='name' cx='50%' cy='50%' innerRadius={55} outerRadius={95} paddingAngle={2} label={pieLabel}>
+                <Pie data={locationChartData} dataKey='value' nameKey='name' cx='50%' cy='50%' innerRadius={55} outerRadius={95} paddingAngle={2} label={pieLabel} onClick={(d)=>setSelectedLoc(d && d.name)} style={{cursor:'pointer'}}>
                   {locationChartData.map((e,i)=>(<Cell key={i} fill={DONUT_COLORS[(i+2) % DONUT_COLORS.length]} />))}
                 </Pie>
                 <Tooltip content={<MoneyTooltip />} />
@@ -246,6 +262,38 @@ export default function AnalyticsPage() {
                 <Bar dataKey='gst' fill='#f59e0b' radius={[6,6,0,0]} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+      {selectedLoc && locBreakdown && (
+        <div style={{...cardStyle, marginTop:'20px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+            <div>
+              <h3 style={{fontSize:'16px',fontWeight:'700',color:'#0f172a',margin:0}}>Breakdown for {selectedLoc}</h3>
+              <p style={{fontSize:'13px',color:'#64748b',margin:'4px 0 0'}}>Total: {money(locBreakdown.totalLoc)} across {locBreakdown.invoices.length} invoice(s)</p>
+            </div>
+            <button onClick={()=>setSelectedLoc(null)} style={{padding:'7px 14px',borderRadius:'8px',background:'#f1f5f9',color:'#475569',fontSize:'12px',fontWeight:'600',border:'1px solid #e2e8f0',cursor:'pointer'}}>Close</button>
+          </div>
+          <p style={{fontSize:'13px',fontWeight:'700',color:'#0f172a',margin:'0 0 10px'}}>By Category</p>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'20px'}}>
+            {locBreakdown.categories.map((c,i)=>(
+              <div key={i} style={{background:'#f8fafc',border:'1px solid #f1f5f9',borderRadius:'10px',padding:'10px 14px'}}>
+                <p style={{fontSize:'11px',color:'#94a3b8',fontWeight:'600',textTransform:'uppercase',margin:0}}>{c.name}</p>
+                <p style={{fontSize:'15px',fontWeight:'700',color:'#0f172a',margin:'2px 0 0'}}>{money(c.value)}</p>
+              </div>
+            ))}
+          </div>
+          <p style={{fontSize:'13px',fontWeight:'700',color:'#0f172a',margin:'0 0 10px'}}>Invoices</p>
+          <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+            {locBreakdown.invoices.map((inv,i)=>(
+              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'#f8fafc',borderRadius:'10px',border:'1px solid #f1f5f9'}}>
+                <div>
+                  <p style={{fontSize:'13px',fontWeight:'600',color:'#1e293b',margin:0}}>{inv.vendor_name || 'Unknown'}</p>
+                  <p style={{fontSize:'11px',color:'#94a3b8',margin:'2px 0 0'}}>{inv.invoice_number || '-'} - {inv.category || 'Uncategorized'}</p>
+                </div>
+                <p style={{fontSize:'13px',fontWeight:'700',color:'#0f172a',margin:0}}>{money(inv.total_amount)}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
