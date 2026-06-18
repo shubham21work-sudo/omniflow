@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import Sidebar from '../../components/layout/Sidebar';
 import Header from '../../components/layout/Header';
+import AssistantWidget from '../../components/assistant/AssistantWidget';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -35,6 +36,7 @@ export default function DashboardLayout({ children }) {
           {children}
         </main>
       </div>
+      <AssistantWidget />
     </div>
   );
 }
