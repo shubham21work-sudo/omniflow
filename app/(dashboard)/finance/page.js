@@ -218,6 +218,7 @@ export default function FinancePage() {
                 <div>
                   <p style={{fontSize:'15px',fontWeight:'700',color:'#0f172a',margin:0}}>{item.invoice?.vendor_name}</p>
                   <p style={{fontSize:'13px',color:'#64748b',margin:'3px 0 0'}}>{item.invoice?.invoice_number} • {item.invoice?.location||'-'}</p>
+                  {item.invoice?.remark && <div style={{marginTop:'8px',padding:'8px 12px',borderRadius:'8px',background:'#faf5ff',border:'1px solid #e9d5ff'}}><span style={{fontSize:'10px',fontWeight:'700',color:'#7c3aed',textTransform:'uppercase'}}>AI Remark</span><p style={{fontSize:'12px',color:'#475569',margin:'2px 0 0',lineHeight:'1.4'}}>{item.invoice.remark}</p>{item.invoice.category && <span style={{display:'inline-block',marginTop:'6px',fontSize:'10px',fontWeight:'600',padding:'2px 8px',borderRadius:'10px',background:'#ede9fe',color:'#6d28d9'}}>{item.invoice.category}</span>}</div>}
                 </div>
                 <div style={{textAlign:'right'}}>
                   <p style={{fontSize:'18px',fontWeight:'800',color:'#0f172a',margin:0}}>Rs. {Number(item.invoice?.total_amount||0).toLocaleString()}</p>
@@ -257,6 +258,7 @@ export default function FinancePage() {
                 <div>
                   <p style={{fontSize:'15px',fontWeight:'700',color:'#0f172a',margin:0}}>{item.invoice?.vendor_name}</p>
                   <p style={{fontSize:'13px',color:'#64748b',margin:'3px 0 0'}}>{item.invoice?.invoice_number} • {item.invoice?.location||'-'}</p>
+                  {item.invoice?.remark && <div style={{marginTop:'8px',padding:'8px 12px',borderRadius:'8px',background:'#faf5ff',border:'1px solid #e9d5ff'}}><span style={{fontSize:'10px',fontWeight:'700',color:'#7c3aed',textTransform:'uppercase'}}>AI Remark</span><p style={{fontSize:'12px',color:'#475569',margin:'2px 0 0',lineHeight:'1.4'}}>{item.invoice.remark}</p>{item.invoice.category && <span style={{display:'inline-block',marginTop:'6px',fontSize:'10px',fontWeight:'600',padding:'2px 8px',borderRadius:'10px',background:'#ede9fe',color:'#6d28d9'}}>{item.invoice.category}</span>}</div>}
                 </div>
                 <div style={{textAlign:'right'}}>
                   <p style={{fontSize:'18px',fontWeight:'800',color:'#0f172a',margin:0}}>Rs. {Number(item.invoice?.total_amount||0).toLocaleString()}</p>

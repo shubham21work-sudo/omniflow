@@ -48,7 +48,7 @@ export default function InvoicesPage() {
         if (regexFields.gst_number) fields.gst_number = regexFields.gst_number;
       }
       fields.invoice_file_url = fileUrl;
-      try { const catRes = await fetch('/api/categorize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vendorName: fields.vendor_name, rawText }) }); const catData = await catRes.json(); fields.category = catData.category || 'Other'; } catch (e) { fields.category = 'Other'; }
+      try { const catRes = await fetch('/api/categorize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vendorName: fields.vendor_name, rawText }) }); const catData = await catRes.json(); fields.category = catData.category || 'Other'; fields.remark = catData.remark || ''; } catch (e) { fields.category = 'Other'; fields.remark = ''; }
       const matchResult = computeConfidence({ extracted: fields, vendors, agreements });
       setExtracted(fields); setScores(matchResult); setStep('review');
     } catch (err) { setMsg('Error: ' + err.message); setStep('upload'); }
@@ -64,6 +64,7 @@ export default function InvoicesPage() {
       agreement_id: scores.matchedAgreement ? scores.matchedAgreement.id : null,
       invoice_number: extracted.invoice_number,
       category: extracted.category || 'Other',
+      remark: extracted.remark || '',
       invoice_date: extracted.invoice_date || null,
       vendor_name: extracted.vendor_name,
       gst_number: extracted.gst_number,
@@ -160,6 +161,7 @@ export default function InvoicesPage() {
             ))}
             {scores.matchedVendor && <p style={{fontSize:'12px',color:'#64748b',marginTop:'12px'}}>Matched Vendor: {scores.matchedVendor.name}</p>}
             {!scores.matchedVendor && <p style={{fontSize:'12px',color:'#dc2626',marginTop:'12px'}}>No matching vendor found in records</p>}
+              {extracted.remark && <div style={{marginTop:'14px',padding:'12px 14px',borderRadius:'10px',background:'#faf5ff',border:'1px solid #e9d5ff'}}><p style={{fontSize:'11px',fontWeight:'700',color:'#7c3aed',textTransform:'uppercase',letterSpacing:'0.04em',margin:'0 0 4px'}}>AI Remark</p><p style={{fontSize:'13px',color:'#475569',margin:0,lineHeight:'1.5'}}>{extracted.remark}</p>{extracted.category && <span style={{display:'inline-block',marginTop:'8px',fontSize:'11px',fontWeight:'600',padding:'3px 10px',borderRadius:'12px',background:'#ede9fe',color:'#6d28d9'}}>{extracted.category}</span>}</div>}
             {msg && <div style={{marginTop:'16px',padding:'12px',borderRadius:'10px',background:msg.includes('Error')?'#fee2e2':'#dcfce7',color:msg.includes('Error')?'#dc2626':'#16a34a',fontSize:'13px',fontWeight:'600'}}>{msg}</div>}
             {!saved && <button onClick={handleSave} disabled={saving} style={{width:'100%',marginTop:'16px',padding:'13px',borderRadius:'10px',background:scores.confidence>=95?'linear-gradient(135deg,#10b981,#059669)':'linear-gradient(135deg,#f59e0b,#d97706)',color:'white',fontSize:'14px',fontWeight:'600',border:'none',cursor:'pointer'}}>{saving?'Saving...':scores.confidence>=95?'Send for Approval':'Save for Review'}</button>}
             {saved && scores.confidence>=95 && <button onClick={()=>window.location.href='/approvals'} style={{width:'100%',marginTop:'12px',padding:'13px',borderRadius:'10px',background:'linear-gradient(135deg,#7c3aed,#4f46e5)',color:'white',fontSize:'14px',fontWeight:'600',border:'none',cursor:'pointer'}}>Go to Approvals</button>}
