@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { extractInvoiceFields } from '../../../lib/ocrParser';
 import { computeConfidence } from '../../../lib/aiMatching';
+import { createNotification } from '../../../lib/notify';
 
 export default function InvoicesPage() {
   const [step, setStep] = useState('upload');
@@ -83,7 +84,8 @@ export default function InvoicesPage() {
       const wf = await supabase.from('approval_workflow').insert([{ invoice_id: data[0].id, current_stage: 1 }]);
       const { data: approvers } = await supabase.from('approver_settings').select('*').eq('stage', 1).single();
       if (approvers) {
-        await fetch('/api/notify', {
+        await createNotification(approvers.email, 'New invoice for approval', 'Invoice ' + (data[0].invoice_number || 'N/A') + ' from ' + (data[0].vendor_name || 'a vendor') + ' for Rs. ' + Number(data[0].total_amount || 0).toLocaleString('en-IN') + ' has been submitted and needs your approval (Stage 1).', '/approvals', data[0].id);
+          const _notifyOld = (false) && fetch('/api/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import NotificationBell from './NotificationBell';
 
 export default function Header({ user, onMenuClick = () => {} }) {
   const router = useRouter();
@@ -93,6 +94,7 @@ export default function Header({ user, onMenuClick = () => {} }) {
           <div style={{width:'28px',height:'28px',borderRadius:'50%',background:'linear-gradient(135deg,#7c3aed,#4f46e5)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px',fontWeight:'700',flexShrink:0}}>{initial}</div>
           <span className="app-username" style={{fontSize:'13px',fontWeight:'600',color:'#475569',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{displayName}</span>
         </div>
+        <NotificationBell />
         <button onClick={handleLogout} style={{padding:'8px 14px',borderRadius:'10px',background:'#fee2e2',color:'#dc2626',fontSize:'13px',fontWeight:'600',border:'none',cursor:'pointer',flexShrink:0}}>Logout</button>
       </div>
     </header>

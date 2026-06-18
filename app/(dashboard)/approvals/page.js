@@ -1,6 +1,7 @@
 ﻿'use client';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { createNotification } from '../../../lib/notify';
 
 const stageLabels = { 1:'Approver 1', 2:'Approver 2', 3:'Approver 3' };
 
@@ -46,7 +47,8 @@ export default function ApprovalsPage() {
   const sendNotification = async (stage, invoiceData) => {
     const nextApprover = approverSettings.find(a => a.stage === stage);
     if (!nextApprover) return;
-    await fetch('/api/notify', {
+    await createNotification(nextApprover.email, 'Invoice needs your approval', 'Invoice ' + (invoiceData.invoice_number || 'N/A') + ' from ' + (invoiceData.vendor_name || 'a vendor') + ' for Rs. ' + Number(invoiceData.total_amount || 0).toLocaleString('en-IN') + ' is waiting for your approval (Stage ' + stage + ').', '/approvals', invoiceData.id);
+      const _notifyOld = (false) && fetch('/api/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -75,6 +77,7 @@ export default function ApprovalsPage() {
         updates.final_status = 'approved';
         await supabase.from('invoices').update({ status:'approved' }).eq('id', workflow.invoice_id);
         await supabase.from('finance_queue').insert([{ invoice_id: workflow.invoice_id, status:'unpaid' }]);
+          try { const { data: fin } = await supabase.from('finance_settings').select('*').limit(1); if (fin && fin[0]) { await createNotification(fin[0].email, 'Invoice ready for payment', 'Invoice ' + (inv.invoice_number || 'N/A') + ' from ' + (inv.vendor_name || 'a vendor') + ' is fully approved and ready for finance.', '/finance', workflow.invoice_id); } } catch (e) {}
       } else {
         updates.current_stage = stage + 1;
         await sendNotification(stage + 1, inv);
