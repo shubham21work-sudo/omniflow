@@ -58,7 +58,23 @@ export default function InvoicesPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    const status = scores.confidence >= 95 ? 'pending_approval' : 'review';
+    const invNum = extracted.invoice_number;
+      if (invNum) {
+        const { data: dupes } = await supabase.from('invoices').select('id,status').eq('invoice_number', invNum);
+        const dupeIds = (dupes || []).map(d => d.id);
+        let blockedPaid = false;
+        if (dupeIds.length > 0) {
+          const { data: fqPaid } = await supabase.from('finance_queue').select('id').in('invoice_id', dupeIds).eq('status', 'paid');
+          if (fqPaid && fqPaid.length > 0) blockedPaid = true;
+        }
+        const blockedApproved = (dupes || []).some(d => d.status === 'approved');
+        if (blockedApproved || blockedPaid) {
+          setSaving(false);
+          setMsg('Error: Invoice ' + invNum + ' already exists and is already approved or paid. Duplicate submission blocked.');
+          return;
+        }
+      }
+      const status = scores.confidence >= 95 ? 'pending_approval' : 'review';
     const { data, error } = await supabase.from('invoices').insert([{
       vendor_id: scores.matchedVendor ? scores.matchedVendor.id : null,
       agreement_id: scores.matchedAgreement ? scores.matchedAgreement.id : null,

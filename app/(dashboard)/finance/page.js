@@ -27,7 +27,14 @@ export default function FinancePage() {
       const { data: invs } = await supabase.from('invoices').select('*').in('id',ids);
       (invs||[]).forEach(inv=>{ invMap[inv.id]=inv; });
     }
-    setItems((fq||[]).map(f=>({...f,invoice:invMap[f.invoice_id]})).filter(f=>f.invoice));
+    let wfMap = {}; let apprNames = {};
+      if (ids.length>0) {
+        const { data: wfs } = await supabase.from('approval_workflow').select('*').in('invoice_id', ids);
+        (wfs||[]).forEach(w=>{ wfMap[w.invoice_id]=w; });
+        const { data: appr } = await supabase.from('approver_settings').select('*');
+        (appr||[]).forEach(a=>{ apprNames[a.stage]=a.name; });
+      }
+      setItems((fq||[]).map(f=>({...f,invoice:invMap[f.invoice_id],workflow:wfMap[f.invoice_id],approverNames:apprNames})).filter(f=>f.invoice));
     setLoading(false);
   };
 
@@ -330,6 +337,16 @@ export default function FinancePage() {
                           </div>
                         </div>
                         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'10px',background:'#f8fafc',borderRadius:'8px',padding:'10px',marginBottom:'12px'}}>
+                          {item.status==='paid' && item.workflow && (
+                            <div style={{gridColumn:'1 / -1',marginBottom:'10px',padding:'10px 12px',background:'#f0fdf4',borderRadius:'8px',border:'1px solid #bbf7d0'}}>
+                              <p style={{fontSize:'11px',fontWeight:'700',color:'#16a34a',textTransform:'uppercase',margin:'0 0 6px'}}>Approved By</p>
+                              <div style={{display:'flex',flexWrap:'wrap',gap:'8px'}}>
+                                {[1,2,3].map(s=>(
+                                  <span key={s} style={{fontSize:'11px',fontWeight:'600',padding:'3px 10px',borderRadius:'12px',background: (item.workflow['approver_'+s+'_status']==='approved') ? '#dcfce7' : '#f1f5f9', color: (item.workflow['approver_'+s+'_status']==='approved') ? '#16a34a' : '#94a3b8'}}>{(item.approverNames && item.approverNames[s]) || ('Approver '+s)}{(item.workflow['approver_'+s+'_status']==='approved') ? ' ✓' : ''}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           {[['Invoice Date',item.invoice?.invoice_date||'-'],['GST Number',item.invoice?.gst_number||'-'],['UTR Number',item.utr_number||'—'],['Payment Date',item.payment_date||'-']].map(([k,v])=>(
                             <div key={k}><p style={{fontSize:'11px',color:'#94a3b8',fontWeight:'600',textTransform:'uppercase',margin:0}}>{k}</p><p style={{fontSize:'12px',fontWeight:'700',color:'#334155',margin:'2px 0 0'}}>{v}</p></div>
                           ))}
