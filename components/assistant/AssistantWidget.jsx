@@ -1,5 +1,5 @@
 ﻿'use client';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
 export default function AssistantWidget() {
@@ -7,6 +7,81 @@ export default function AssistantWidget() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([{ role: 'assistant', content: 'Hi! I am your OmniFlow assistant. Ask me anything about your invoices, vendors, approvals, or spending.' }]);
   const [loading, setLoading] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [callMode, setCallMode] = useState(false);
+  const callModeRef = useRef(false);
+  const messagesRef = useRef([]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  const askInCall = async (q) => {
+    if (!q || !q.trim()) { if (callModeRef.current) listenOnce(askInCall); return; }
+    const newMsgs = [...messagesRef.current, { role: 'user', content: q }];
+    setMessages(newMsgs); messagesRef.current = newMsgs;
+    setLoading(true);
+    let ans = 'No response.';
+    try {
+      const snapshot = await buildSnapshot();
+      const history = newMsgs.slice(1, -1).map(m => ({ role: m.role, content: m.content }));
+      const res = await fetch('/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, snapshot, history }) });
+      const data = await res.json();
+      ans = data.answer || 'No response.';
+    } catch (e) { ans = 'Sorry, something went wrong.'; }
+    const updated = [...messagesRef.current, { role: 'assistant', content: ans }];
+    setMessages(updated); messagesRef.current = updated;
+    setLoading(false);
+    speakThen(ans, () => { if (callModeRef.current) listenOnce(askInCall); });
+  };
+
+  const startCall = () => {
+    callModeRef.current = true; setCallMode(true);
+    listenOnce(askInCall);
+  };
+
+  const endCall = () => {
+    callModeRef.current = false; setCallMode(false);
+    if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+  };
+
+  const speakThen = (text, onDone) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) { if (onDone) onDone(); return; }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1; u.pitch = 1; u.lang = 'en-IN';
+    u.onend = () => { if (onDone) onDone(); };
+    window.speechSynthesis.speak(u);
+  };
+
+  const listenOnce = (onText) => {
+    const SR = (typeof window !== 'undefined') && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SR) { alert('Voice is not supported in this browser. Try Chrome.'); return; }
+    const rec = new SR();
+    rec.lang = 'en-IN'; rec.interimResults = false; rec.maxAlternatives = 1;
+    rec.onstart = () => setListening(true);
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    rec.onresult = (e) => { const t = e.results[0][0].transcript; onText(t); };
+    rec.start();
+  };
+
+  const speak = (text) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1; u.pitch = 1; u.lang = 'en-IN';
+    window.speechSynthesis.speak(u);
+  };
+
+  const startListening = () => {
+    const SR = (typeof window !== 'undefined') && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SR) { alert('Voice input is not supported in this browser. Try Chrome.'); return; }
+    const rec = new SR();
+    rec.lang = 'en-IN'; rec.interimResults = false; rec.maxAlternatives = 1;
+    rec.onstart = () => setListening(true);
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    rec.onresult = (e) => { const t = e.results[0][0].transcript; setInput(t); };
+    rec.start();
+  };
 
   const buildSnapshot = async () => {
     const [inv, ven, agr, appr, fin] = await Promise.all([
@@ -37,7 +112,9 @@ export default function AssistantWidget() {
       const history = newMsgs.slice(1, -1).map(m => ({ role: m.role, content: m.content }));
       const res = await fetch('/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, snapshot, history }) });
       const data = await res.json();
-      setMessages(m => [...m, { role: 'assistant', content: data.answer || 'No response.' }]);
+      const ans = data.answer || 'No response.';
+      setMessages(m => [...m, { role: 'assistant', content: ans }]);
+      speak(ans);
     } catch (e) {
       setMessages(m => [...m, { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' }]);
     }
@@ -58,16 +135,23 @@ export default function AssistantWidget() {
               <p style={{color:'white',fontWeight:'700',fontSize:'15px',margin:0}}>OmniFlow Assistant</p>
               <p style={{color:'#ddd6fe',fontSize:'11px',margin:'2px 0 0'}}>Ask about your invoices and vendors</p>
             </div>
-            <button onClick={()=>setOpen(false)} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',width:'28px',height:'28px',borderRadius:'8px',cursor:'pointer',fontSize:'16px'}}>X</button>
+            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+              <button onClick={()=> callMode ? endCall() : startCall()} style={{background: callMode ? '#dc2626' : 'rgba(255,255,255,0.25)',border:'none',color:'white',padding:'6px 12px',borderRadius:'8px',cursor:'pointer',fontSize:'12px',fontWeight:'600'}}>{callMode ? 'End Call' : 'Start Call'}</button>
+              <button onClick={()=>{ endCall(); setOpen(false); }} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',width:'28px',height:'28px',borderRadius:'8px',cursor:'pointer',fontSize:'16px'}}>X</button>
+            </div>
           </div>
           <div style={{flex:1,overflowY:'auto',padding:'16px',display:'flex',flexDirection:'column',gap:'12px',background:'#f8fafc'}}>
             {messages.map((m,i)=>(
-              <div key={i} style={{alignSelf: m.role==='user'?'flex-end':'flex-start',maxWidth:'85%',background: m.role==='user'?'linear-gradient(135deg,#7c3aed,#4f46e5)':'white',color: m.role==='user'?'white':'#1e293b',padding:'10px 14px',borderRadius:'14px',fontSize:'13px',lineHeight:'1.5',whiteSpace:'pre-wrap',border: m.role==='user'?'none':'1px solid #e5e7eb'}}>{m.content}</div>
+              <div key={i} style={{alignSelf: m.role==='user'?'flex-end':'flex-start',maxWidth:'85%',display:'flex',flexDirection:'column',gap:'4px'}}>
+                <div style={{background: m.role==='user'?'linear-gradient(135deg,#7c3aed,#4f46e5)':'white',color: m.role==='user'?'white':'#1e293b',padding:'10px 14px',borderRadius:'14px',fontSize:'13px',lineHeight:'1.5',whiteSpace:'pre-wrap',border: m.role==='user'?'none':'1px solid #e5e7eb'}}>{m.content}</div>
+                {m.role==='assistant' && <button onClick={()=>speak(m.content)} title='Listen' style={{alignSelf:'flex-start',background:'none',border:'none',color:'#7c3aed',fontSize:'11px',fontWeight:'600',cursor:'pointer',padding:'0 4px'}}>Listen</button>}
+              </div>
             ))}
             {loading && <div style={{alignSelf:'flex-start',color:'#94a3b8',fontSize:'13px'}}>Thinking...</div>}
           </div>
           <div style={{padding:'12px',borderTop:'1px solid #e5e7eb',display:'flex',gap:'8px'}}>
             <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={onKey} placeholder='Ask something...' style={{flex:1,padding:'10px 14px',borderRadius:'10px',border:'1px solid #e5e7eb',fontSize:'13px',outline:'none'}} />
+            <button onClick={startListening} disabled={loading} title='Speak' style={{padding:'10px 14px',borderRadius:'10px',background: listening ? '#fee2e2' : '#f1f5f9',color: listening ? '#dc2626' : '#475569',border:'none',fontSize:'16px',cursor:'pointer'}}>{listening ? '...' : 'MIC'}</button>
             <button onClick={send} disabled={loading} style={{padding:'10px 18px',borderRadius:'10px',background:'linear-gradient(135deg,#7c3aed,#4f46e5)',color:'white',border:'none',fontSize:'13px',fontWeight:'600',cursor:'pointer'}}>Send</button>
           </div>
         </div>
