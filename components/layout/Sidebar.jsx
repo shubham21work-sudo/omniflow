@@ -64,7 +64,7 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
         <nav style={{flex:1,padding:'16px 12px',overflowY:'auto'}}>
           {nav.map(item=>(
             item.children ? (
-              <div key={item.label}>
+              <div key={item.label} onMouseEnter={()=>setOpenMenu(item.label)}>
                 <div onClick={()=>setOpenMenu(openMenu===item.label?'':item.label)} style={linkStyle(path && path.startsWith(item.href))}>
                   <span>{item.label}</span>
                   <span style={{fontSize:'10px'}}>{openMenu===item.label?'▾':'▸'}</span>
