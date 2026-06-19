@@ -42,6 +42,8 @@ export default function TATAnalyticsPage() {
         vendor_name: inv.vendor_name,
         t1, t2, t3, tPay,
         paid: fq.status === 'paid',
+        utr: fq.utr_number || '',
+        payment_date: fq.payment_date || '',
       };
     });
     setRows(result);
@@ -120,7 +122,7 @@ export default function TATAnalyticsPage() {
             <table style={{width:'100%',borderCollapse:'collapse',minWidth:'640px'}}>
               <thead>
                 <tr style={{borderBottom:'1px solid #f1f5f9',textAlign:'left'}}>
-                  {['Invoice','Vendor','Approver 1','Approver 2','Approver 3','Payment'].map(h=>(
+                  {['Invoice','Vendor','Approver 1','Approver 2','Approver 3','Payment','UTR','Paid On'].map(h=>(
                     <th key={h} style={{padding:'12px 16px',fontSize:'11px',fontWeight:'700',color:'#94a3b8',textTransform:'uppercase'}}>{h}</th>
                   ))}
                 </tr>
@@ -135,6 +137,8 @@ export default function TATAnalyticsPage() {
                       {[c1,c2,c3,cp].map((c,idx)=>(
                         <td key={idx} style={{padding:'12px 16px'}}><span style={{fontSize:'12px',fontWeight:'600',padding:'3px 10px',borderRadius:'12px',background:c.bg,color:c.color}}>{c.txt}</span></td>
                       ))}
+                      <td style={{padding:'12px 16px',fontSize:'12px',color:'#475569'}}>{r.utr || '-'}</td>
+                      <td style={{padding:'12px 16px',fontSize:'12px',color:'#94a3b8'}}>{r.payment_date || '-'}</td>
                     </tr>
                   );
                 })}
