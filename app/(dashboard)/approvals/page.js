@@ -72,9 +72,10 @@ export default function ApprovalsPage() {
       await supabase.from('approval_workflow').update({ [statusKey]:'rejected', final_status:'rejected' }).eq('id', workflow.id);
       await supabase.from('invoices').update({ status:'rejected' }).eq('id', workflow.invoice_id);
     } else {
-      const updates = { [statusKey]:'approved' };
+      const updates = { [statusKey]:'approved', ['approver_' + stage + '_at']: new Date().toISOString() };
       if (stage >= 3) {
         updates.final_status = 'approved';
+          updates.final_approved_at = new Date().toISOString();
         await supabase.from('invoices').update({ status:'approved' }).eq('id', workflow.invoice_id);
         await supabase.from('finance_queue').insert([{ invoice_id: workflow.invoice_id, status:'unpaid' }]);
           try { const { data: fin } = await supabase.from('finance_settings').select('*').limit(1); if (fin && fin[0]) { await createNotification(fin[0].email, 'Invoice ready for payment', 'Invoice ' + (inv.invoice_number || 'N/A') + ' from ' + (inv.vendor_name || 'a vendor') + ' is fully approved and ready for finance.', '/finance', workflow.invoice_id); } } catch (e) {}

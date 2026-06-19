@@ -4,6 +4,24 @@ import { supabase } from '../../../lib/supabase';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({ total:0, pending:0, approved:0, vendors:0 });
+  const [allInvoices, setAllInvoices] = useState([]);
+  const now = new Date();
+  const [filterYear, setFilterYear] = useState(String(now.getFullYear()));
+  const [filterMonth, setFilterMonth] = useState('all');
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const filteredInv = allInvoices.filter(inv => {
+    const d = inv.invoice_date ? new Date(inv.invoice_date) : (inv.created_at ? new Date(inv.created_at) : null);
+    if (!d) return false;
+    if (filterYear !== 'all' && String(d.getFullYear()) !== filterYear) return false;
+    if (filterMonth !== 'all' && d.getMonth() !== Number(filterMonth)) return false;
+    return true;
+  });
+  const fStats = {
+    total: filteredInv.length,
+    pending: filteredInv.filter(i=>i.status==='pending_approval'||i.status==='review').length,
+    approved: filteredInv.filter(i=>i.status==='approved').length,
+  };
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -13,7 +31,8 @@ export default function DashboardPage() {
       const { data: vens } = await supabase.from('vendors').select('id');
       const all = invs || [];
       setStats({ total:all.length, pending:all.filter(i=>i.status==='pending_approval'||i.status==='review').length, approved:all.filter(i=>i.status==='approved').length, vendors:(vens||[]).length });
-      setInvoices(all.slice(0,5));
+      setAllInvoices(all);
+        setInvoices(all.slice(0,5));
       setLoading(false);
     })();
   }, []);
@@ -26,13 +45,25 @@ export default function DashboardPage() {
       <div style={{marginBottom:'24px'}}>
         <h2 style={{fontSize:'22px',fontWeight:'700',color:'#0f172a',margin:0}}>Dashboard</h2>
         <p style={{color:'#64748b',fontSize:'14px',margin:'4px 0 0'}}>Welcome back! Here is what is happening today.</p>
+        <div style={{display:'flex',gap:'10px',marginTop:'14px',flexWrap:'wrap'}}>
+          <select value={filterYear} onChange={e=>setFilterYear(e.target.value)} style={{padding:'8px 14px',borderRadius:'10px',border:'1px solid #e2e8f0',background:'white',fontSize:'13px',fontWeight:'600',color:'#475569',cursor:'pointer'}}>
+            <option value='all'>All Years</option>
+            <option value='2025'>2025</option>
+            <option value='2026'>2026</option>
+            <option value='2027'>2027</option>
+          </select>
+          <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} style={{padding:'8px 14px',borderRadius:'10px',border:'1px solid #e2e8f0',background:'white',fontSize:'13px',fontWeight:'600',color:'#475569',cursor:'pointer'}}>
+            <option value='all'>All Months</option>
+            {monthNames.map((m,i)=>(<option key={i} value={i}>{m}</option>))}
+          </select>
+        </div>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'20px',marginBottom:'28px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'20px',marginBottom:'28px'}}>
         {[
-          {label:'Total Invoices',value:loading?'...':stats.total,bg:'linear-gradient(135deg,#7c3aed,#4f46e5)'},
-          {label:'Pending / Review',value:loading?'...':stats.pending,bg:'linear-gradient(135deg,#f59e0b,#f97316)'},
-          {label:'Approved',value:loading?'...':stats.approved,bg:'linear-gradient(135deg,#10b981,#0d9488)'},
-          {label:'Active Vendors',value:loading?'...':stats.vendors,bg:'linear-gradient(135deg,#38bdf8,#3b82f6)'},
+          {label:'Total Invoices',value:loading?'...':fStats.total,bg:'linear-gradient(135deg,#7c3aed,#4f46e5)'},
+          {label:'Pending / Review',value:loading?'...':fStats.pending,bg:'linear-gradient(135deg,#f59e0b,#f97316)'},
+          {label:'Approved',value:loading?'...':fStats.approved,bg:'linear-gradient(135deg,#10b981,#0d9488)'},
+          
         ].map(s=>(
           <div key={s.label} style={{background:'white',borderRadius:'16px',padding:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.06)',border:'1px solid #f1f5f9'}}>
             <div style={{width:'42px',height:'42px',borderRadius:'12px',background:s.bg,marginBottom:'14px'}}></div>
