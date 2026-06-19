@@ -47,3 +47,7 @@ body {
   .app-content { padding: 16px !important; }
   table { display: block; overflow-x: auto; white-space: nowrap; }
 }
+@media (max-width: 768px) {
+  .auth-brand { display: none !important; }
+}
+
